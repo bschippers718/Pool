@@ -1,7 +1,9 @@
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { resolveActiveMembership } from "@/lib/server/membership";
 
-// GET /api/pools/mine — the caller's pool with live monthly usage and invite.
+// GET /api/pools/mine — the caller's ACTIVE pool with live monthly usage and
+// invite, plus a light list of every pool they belong to (for the switcher).
 export async function GET() {
   let userId: string;
   try {
@@ -11,24 +13,10 @@ export async function GET() {
   }
 
   const db = supabaseService();
-  const { data: membership } = await db
-    .from("pool_members")
-    .select("role, pools(id, name, emoji, monthly_budget_cents, owner_id)")
-    .eq("user_id", userId)
-    // Match the gateway: oldest membership wins if a user ever has several.
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const membership = await resolveActiveMembership(userId);
+  if (!membership) return Response.json({ pool: null, pools: [] });
 
-  if (!membership) return Response.json({ pool: null });
-
-  const pool = membership.pools as unknown as {
-    id: string;
-    name: string;
-    emoji: string;
-    monthly_budget_cents: number;
-    owner_id: string;
-  };
+  const pool = membership.pool;
 
   const since = new Date();
   since.setUTCDate(1);
@@ -59,6 +47,13 @@ export async function GET() {
   }
 
   return Response.json({
+    pools: membership.memberships.map((m) => ({
+      id: m.poolId,
+      name: m.pool.name,
+      emoji: m.pool.emoji,
+      isOwner: m.pool.owner_id === userId,
+      isActive: m.poolId === membership.poolId,
+    })),
     pool: {
       id: pool.id,
       name: pool.name,

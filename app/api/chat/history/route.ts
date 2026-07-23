@@ -1,7 +1,9 @@
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { resolveActiveMembership } from "@/lib/server/membership";
 
-// GET /api/chat/history — the caller's chat thread in their pool.
+// GET /api/chat/history — the caller's chat thread in their ACTIVE pool.
+// One thread per member per pool, so switching pools switches history too.
 export async function GET() {
   let userId: string;
   try {
@@ -11,10 +13,14 @@ export async function GET() {
   }
 
   const db = supabaseService();
+  const membership = await resolveActiveMembership(userId);
+  if (!membership) return Response.json({ messages: [] });
+
   const { data: thread } = await db
     .from("chat_threads")
     .select("id")
     .eq("user_id", userId)
+    .eq("pool_id", membership.poolId)
     .limit(1)
     .maybeSingle();
 

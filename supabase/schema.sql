@@ -9,6 +9,9 @@ create table if not exists profiles (
   created_at timestamptz not null default now()
 );
 
+-- Users can belong to several pools; this points at the one the app acts on.
+-- (fk added after pools exists — see below)
+
 create table if not exists pools (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -18,6 +21,9 @@ create table if not exists pools (
   status text not null default 'active' check (status in ('active', 'exhausted', 'archived')),
   created_at timestamptz not null default now()
 );
+
+alter table profiles
+  add column if not exists active_pool_id uuid references pools(id) on delete set null;
 
 create table if not exists pool_members (
   pool_id uuid not null references pools(id) on delete cascade,

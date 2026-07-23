@@ -30,6 +30,7 @@ async function main() {
     .single();
   if (poolErr || !pool) fail("pool", poolErr?.message ?? "no pool");
   const poolId = pool!.id as string;
+  let friendPoolId: string | null = null;
 
   try {
     {
@@ -138,19 +139,47 @@ async function main() {
       if ((members ?? []).length !== 2) fail("ledger members", `expected 2, got ${members?.length}`);
     }
 
-    console.log("12. one-pool-per-user guard (join route logic)…");
+    console.log("12. multi-pool: second membership, active-pool switching…");
     {
-      const { data: memberships } = await db.from("pool_members").select("pool_id").eq("user_id", TEST_FRIEND);
-      const other = (memberships ?? []).find((m) => m.pool_id !== poolId);
-      if (other) fail("guard", "friend somehow in two pools");
-      // Friend already in this pool: join route must not duplicate membership.
+      // Rejoining the same pool must still violate the primary key.
       const again = await db.from("pool_members").insert({ pool_id: poolId, user_id: TEST_FRIEND, role: "member" });
       if (!again.error) fail("guard", "duplicate membership insert should violate the primary key");
+
+      // Friend starts their own pool (create route logic) — both memberships coexist.
+      const { data: second, error: secondErr } = await db
+        .from("pools")
+        .insert({ name: "smoke friend pool", owner_id: TEST_FRIEND, monthly_budget_cents: 3000 })
+        .select("id")
+        .single();
+      if (secondErr || !second) fail("second pool", secondErr?.message ?? "no pool");
+      friendPoolId = second!.id as string;
+      {
+        const { error } = await db.from("pool_members").insert({ pool_id: friendPoolId, user_id: TEST_FRIEND, role: "owner" });
+        if (error) fail("second membership", error.message);
+      }
+
+      // Creating a pool makes it active — the gateway must follow the pointer.
+      await db.from("profiles").update({ active_pool_id: friendPoolId }).eq("id", TEST_FRIEND);
+      const ownCtx = await resolvePoolContext(TEST_FRIEND);
+      if (ownCtx.poolId !== friendPoolId) fail("switch", `expected friend's own pool, got ${ownCtx.poolId}`);
+
+      // Switch back to the shared pool.
+      await db.from("profiles").update({ active_pool_id: poolId }).eq("id", TEST_FRIEND);
+      const backCtx = await resolvePoolContext(TEST_FRIEND);
+      if (backCtx.poolId !== poolId) fail("switch back", `expected shared pool, got ${backCtx.poolId}`);
+
+      // Stale pointer heals to the oldest membership instead of erroring.
+      await db.from("profiles").update({ active_pool_id: null }).eq("id", TEST_FRIEND);
+      const healedCtx = await resolvePoolContext(TEST_FRIEND);
+      if (healedCtx.poolId !== poolId) fail("heal", `expected oldest membership, got ${healedCtx.poolId}`);
+      const { data: healedProfile } = await db.from("profiles").select("active_pool_id").eq("id", TEST_FRIEND).single();
+      if (healedProfile?.active_pool_id !== poolId) fail("heal", "active_pool_id pointer was not repaired");
     }
 
     console.log("\nALL CHECKS PASSED");
   } finally {
     console.log("cleanup…");
+    if (friendPoolId) await db.from("pools").delete().eq("id", friendPoolId);
     await db.from("pools").delete().eq("id", poolId); // cascades members/invites/threads/messages/usage/moments
     await db.from("profiles").delete().eq("id", TEST_USER);
     await db.from("profiles").delete().eq("id", TEST_FRIEND);

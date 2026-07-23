@@ -1,8 +1,9 @@
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { resolveActiveMembership } from "@/lib/server/membership";
 
 // GET /api/usage — the caller's monthly usage + pool aggregate for ledger,
-// receipt, and billing pages.
+// receipt, and billing pages. Scoped to the caller's ACTIVE pool.
 export async function GET() {
   let userId: string;
   try {
@@ -12,24 +13,18 @@ export async function GET() {
   }
 
   const db = supabaseService();
-  const { data: membership } = await db
-    .from("pool_members")
-    .select("pool_id, pools(name, monthly_budget_cents)")
-    .eq("user_id", userId)
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const membership = await resolveActiveMembership(userId);
   if (!membership) {
     return Response.json({ usage: null });
   }
-  const pool = membership.pools as unknown as { name: string; monthly_budget_cents: number };
+  const pool = membership.pool;
 
   const [{ count: memberCount }, { data: invite }] = await Promise.all([
     db
       .from("pool_members")
       .select("user_id", { count: "exact", head: true })
-      .eq("pool_id", membership.pool_id),
-    db.from("invites").select("code").eq("pool_id", membership.pool_id).limit(1).maybeSingle(),
+      .eq("pool_id", membership.poolId),
+    db.from("invites").select("code").eq("pool_id", membership.poolId).limit(1).maybeSingle(),
   ]);
 
   const since = new Date();
@@ -39,7 +34,7 @@ export async function GET() {
   const { data: events } = await db
     .from("usage_events")
     .select("user_id, estimated_retail_cents")
-    .eq("pool_id", membership.pool_id)
+    .eq("pool_id", membership.poolId)
     .gte("created_at", since.toISOString());
 
   const rows = events ?? [];

@@ -16,7 +16,6 @@ export default function JoinClient({ code, valid, poolName, poolEmoji }: Props) 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [alreadyPooled, setAlreadyPooled] = useState(false);
   const autoTried = useRef(false);
 
   // Coming back from sign-up (?auto=1): they already tapped join once,
@@ -52,12 +51,6 @@ export default function JoinClient({ code, valid, poolName, poolEmoji }: Props) 
       }
 
       const data = await res.json().catch(() => null);
-      if (res.status === 409) {
-        setAlreadyPooled(true);
-        setError(data?.error ?? "you're already in a pool");
-        setBusy(false);
-        return;
-      }
       if (!res.ok) {
         const friendly =
           res.status === 404
@@ -114,11 +107,6 @@ export default function JoinClient({ code, valid, poolName, poolEmoji }: Props) 
           </>
         )}
         {error && <div className="error-banner" style={{ marginTop: 14 }}>{error}</div>}
-        {alreadyPooled && (
-          <a href="/chat" className="btn3 ghost" style={{ marginTop: 12, display: "block" }}>
-            open your pool →
-          </a>
-        )}
       </div>
     </div>
   );

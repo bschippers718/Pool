@@ -101,7 +101,7 @@ export default function MiscAction({ kind, poolName, inviteLink }: MiscActionPro
                   <button className="btn3 ghost" style={{ marginTop: 16 }} onClick={() => window.localStorage.clear()}>clear demo history</button>
                 ) : (
                   <div style={{ color: "var(--dim)", fontSize: 11, lineHeight: 1.6, marginTop: 12 }}>
-                    members can leave anytime — tap &ldquo;start your own pool&rdquo; on the misc page. need your data deleted during the alpha? message the pool owner.
+                    you can switch, join, or leave pools anytime under &ldquo;your pools&rdquo; on the misc page. need your data deleted during the beta? message the pool owner.
                   </div>
                 )}
               </div>

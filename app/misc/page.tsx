@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import TabBar from "@/components/TabBar";
 import MiscAction from "@/components/MiscAction";
 import OwnerControls from "@/components/OwnerControls";
-import StartYourOwnPool from "@/components/StartYourOwnPool";
+import PoolSwitcher, { type SwitcherPool } from "@/components/PoolSwitcher";
 import SignOutRow from "@/components/SignOutRow";
 import PoolData from "@/components/PoolData";
 import { PLogo, RippleLogo } from "@/components/Logo";
@@ -28,6 +28,7 @@ interface LivePool {
 
 export default function MiscPage() {
   const [live, setLive] = useState<LivePool | null | undefined | "error">(demo ? null : undefined);
+  const [myPools, setMyPools] = useState<SwitcherPool[]>([]);
   const [inviteFeedback, setInviteFeedback] = useState<"shared" | "copied" | null>(null);
 
   useEffect(() => {
@@ -39,7 +40,9 @@ export default function MiscPage() {
         return res.json();
       })
       .then((data) => {
-        if (!cancelled) setLive(data.pool ?? null);
+        if (cancelled) return;
+        setLive(data.pool ?? null);
+        setMyPools(data.pools ?? []);
       })
       .catch(() => {
         if (!cancelled) setLive("error");
@@ -251,6 +254,12 @@ export default function MiscPage() {
           </div>
         </div>
 
+        {!demo && myPools.length > 0 && (
+          <div style={{ margin: "12px 20px 0" }}>
+            <PoolSwitcher pools={myPools} />
+          </div>
+        )}
+
         {!demo && <PoolData />}
 
         <div style={{ margin: "18px 20px 0", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -288,7 +297,6 @@ export default function MiscPage() {
           <MiscAction kind="invite" poolName={poolName} inviteLink={inviteLink} />
           <MiscAction kind="fairness" />
           <MiscAction kind="privacy" />
-          {!demo && !lp!.isOwner && <StartYourOwnPool poolName={poolName} />}
           {!demo && lp!.isOwner && (
             <OwnerControls
               inviteCode={lp!.inviteCode}

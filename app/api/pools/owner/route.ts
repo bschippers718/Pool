@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { resolveActiveMembership } from "@/lib/server/membership";
 
-// POST /api/pools/owner — owner-only pool controls.
+// POST /api/pools/owner — owner-only controls for the caller's ACTIVE pool.
 // Actions: reset_budget, regenerate_invite, remove_member { userId }
 export async function POST(req: NextRequest) {
   let userId: string;
@@ -20,13 +21,11 @@ export async function POST(req: NextRequest) {
   }
 
   const db = supabaseService();
-  const { data: pool } = await db
-    .from("pools")
-    .select("id")
-    .eq("owner_id", userId)
-    .limit(1)
-    .maybeSingle();
-  if (!pool) return Response.json({ error: "Only the pool owner can do that." }, { status: 403 });
+  const membership = await resolveActiveMembership(userId);
+  if (!membership || membership.pool.owner_id !== userId) {
+    return Response.json({ error: "Only the pool owner can do that." }, { status: 403 });
+  }
+  const pool = { id: membership.poolId };
 
   switch (body.action) {
     case "reset_budget": {

@@ -1,6 +1,7 @@
 import type { ModelId } from "@/lib/pricing";
 import { estimateCost } from "@/lib/pricing";
 import { supabaseService } from "./supabase";
+import { resolveActiveMembership } from "./membership";
 import { actualCostCents, providerClient, tierRoute } from "./providers";
 
 // The Pool Capacity Gateway: every AI request in the product flows through
@@ -36,25 +37,16 @@ function monthStart(): string {
 export async function resolvePoolContext(userId: string): Promise<PoolContext> {
   const db = supabaseService();
 
-  const { data: membership, error: memberErr } = await db
-    .from("pool_members")
-    .select("pool_id, pools(id, name, monthly_budget_cents, status)")
-    .eq("user_id", userId)
-    // Alpha is one pool per user, but if that ever slips, always resolve the
-    // oldest membership instead of an arbitrary one.
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (memberErr) throw new GatewayError("provider_error", memberErr.message);
+  // Users can be in several pools — requests draw from the ACTIVE one.
+  let membership;
+  try {
+    membership = await resolveActiveMembership(userId);
+  } catch (err) {
+    throw new GatewayError("provider_error", err instanceof Error ? err.message : "membership lookup failed");
+  }
   if (!membership) throw new GatewayError("no_pool", "you're not in a pool yet — create or join one");
 
-  const pool = membership.pools as unknown as {
-    id: string;
-    name: string;
-    monthly_budget_cents: number;
-    status: string;
-  };
+  const pool = membership.pool;
 
   const since = monthStart();
   const { data: events, error: usageErr } = await db

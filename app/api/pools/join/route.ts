@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { setActivePool } from "@/lib/server/membership";
 
-// POST /api/pools/join { code } — redeem an invite code.
+// POST /api/pools/join { code } — redeem an invite code and make that pool active.
 export async function POST(req: NextRequest) {
   let userId: string;
   try {
@@ -37,19 +38,10 @@ export async function POST(req: NextRequest) {
 
   const { data: memberships } = await db
     .from("pool_members")
-    .select("pool_id, pools(name)")
+    .select("pool_id")
     .eq("user_id", userId);
 
   const alreadyInThisPool = (memberships ?? []).some((m) => m.pool_id === invite.pool_id);
-  const otherPool = (memberships ?? []).find((m) => m.pool_id !== invite.pool_id);
-
-  if (otherPool) {
-    const current = otherPool.pools as unknown as { name: string } | null;
-    return Response.json(
-      { error: `You're already in "${current?.name ?? "another pool"}" — one pool per person during the alpha.` },
-      { status: 409 }
-    );
-  }
 
   if (!alreadyInThisPool) {
     const { error: joinErr } = await db
@@ -58,6 +50,9 @@ export async function POST(req: NextRequest) {
     if (joinErr) return Response.json({ error: joinErr.message }, { status: 500 });
     await db.from("invites").update({ uses: invite.uses + 1 }).eq("id", invite.id);
   }
+
+  // Whether freshly joined or re-redeeming a link, land them in this pool.
+  await setActivePool(userId, invite.pool_id);
 
   const { data: pool } = await db
     .from("pools")

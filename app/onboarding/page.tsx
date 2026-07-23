@@ -39,7 +39,7 @@ function Onboarding() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [alreadyPooled, setAlreadyPooled] = useState(false);
+  const [atCap, setAtCap] = useState(false);
   const [created, setCreated] = useState<{ name: string; inviteCode: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -56,8 +56,9 @@ function Onboarding() {
       });
       const data = await res.json();
       if (res.status === 409) {
-        setAlreadyPooled(true);
-        throw new Error(data.error ?? "you're already in a pool");
+        // Only trips at the beta cap on pools per person.
+        setAtCap(true);
+        throw new Error(data.error ?? "you've hit the pool cap for the beta");
       }
       if (!res.ok) throw new Error(data.error ?? "failed");
       setCreated({ name: data.pool?.name ?? name.trim(), inviteCode: data.inviteCode ?? null });
@@ -80,10 +81,6 @@ function Onboarding() {
         body: JSON.stringify({ code: code.trim() }),
       });
       const data = await res.json();
-      if (res.status === 409) {
-        setAlreadyPooled(true);
-        throw new Error(data.error ?? "you're already in a pool");
-      }
       if (!res.ok) throw new Error(data.error ?? "couldn't join — check the code");
       router.push("/chat");
     } catch (err) {
@@ -215,9 +212,9 @@ function Onboarding() {
       )}
 
       {error && <div className="error-banner" style={{ marginTop: 14 }}>{error}</div>}
-      {alreadyPooled && (
+      {atCap && (
         <a href="/chat" className="btn3 ghost" style={{ marginTop: 12, display: "block" }}>
-          open your pool →
+          back to your pools →
         </a>
       )}
     </div>

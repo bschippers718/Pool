@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { resolveActiveMembership } from "@/lib/server/membership";
 import { VALID_TIERS, type ModelId } from "@/lib/pricing";
 
-// GET /api/moments — shared moments for the caller's pool (newest first).
+// GET /api/moments — shared moments for the caller's ACTIVE pool (newest first).
 // POST /api/moments { title, response, tier } — share an answer to the squad.
 
 export async function GET() {
@@ -15,19 +16,13 @@ export async function GET() {
   }
 
   const db = supabaseService();
-  const { data: membership } = await db
-    .from("pool_members")
-    .select("pool_id")
-    .eq("user_id", userId)
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const membership = await resolveActiveMembership(userId);
   if (!membership) return Response.json({ moments: [] });
 
   const { data: moments, error } = await db
     .from("shared_moments")
     .select("id, title, response, tier, created_at, user_id, profiles(handle, display_name)")
-    .eq("pool_id", membership.pool_id)
+    .eq("pool_id", membership.poolId)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -70,18 +65,12 @@ export async function POST(req: NextRequest) {
   if (!VALID_TIERS.includes(tier)) return Response.json({ error: "Unsupported tier" }, { status: 400 });
 
   const db = supabaseService();
-  const { data: membership } = await db
-    .from("pool_members")
-    .select("pool_id")
-    .eq("user_id", userId)
-    .order("joined_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const membership = await resolveActiveMembership(userId);
   if (!membership) return Response.json({ error: "no_pool" }, { status: 400 });
 
   const { data: moment, error } = await db
     .from("shared_moments")
-    .insert({ pool_id: membership.pool_id, user_id: userId, title, response, tier })
+    .insert({ pool_id: membership.poolId, user_id: userId, title, response, tier })
     .select("id")
     .single();
 

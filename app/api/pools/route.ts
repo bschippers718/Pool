@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
 import { requireUserId } from "@/lib/server/auth";
 import { supabaseService } from "@/lib/server/supabase";
+import { setActivePool } from "@/lib/server/membership";
+
+const MAX_POOLS = 10;
 
 function inviteCode(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
-// POST /api/pools { name, emoji? } — create a pool and join as owner.
+// POST /api/pools { name, emoji? } — create a pool, join as owner, make it active.
 export async function POST(req: NextRequest) {
   let userId: string;
   try {
@@ -26,17 +29,14 @@ export async function POST(req: NextRequest) {
 
   const db = supabaseService();
 
-  // Alpha is one pool per user — block double-creates (double-tap, back button).
-  const { data: existing } = await db
+  // Sanity cap so a stuck retry loop can't spawn pools forever.
+  const { count: poolCount } = await db
     .from("pool_members")
-    .select("pool_id, pools(name)")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    const current = existing.pools as unknown as { name: string } | null;
+    .select("pool_id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if ((poolCount ?? 0) >= MAX_POOLS) {
     return Response.json(
-      { error: `You're already in "${current?.name ?? "a pool"}". Leave it before starting a new one.` },
+      { error: `You're in ${poolCount} pools already — that's the cap for the beta.` },
       { status: 409 }
     );
   }
@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     .from("pool_members")
     .insert({ pool_id: pool.id, user_id: userId, role: "owner" });
   if (memberErr) return Response.json({ error: memberErr.message }, { status: 500 });
+
+  // The pool you just made becomes the one you're looking at.
+  await setActivePool(userId, pool.id);
 
   const { data: invite } = await db
     .from("invites")
