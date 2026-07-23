@@ -262,7 +262,14 @@ export default function ChatPage() {
   function selectSlashCommand(cmd: SlashCommand) {
     setInput(cmd.template);
     setSlashMenu(null);
-    inputRef.current?.focus();
+    // Keep focus and put the caret at the end of the template.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const end = cmd.template.length;
+      el.setSelectionRange(end, end);
+    });
   }
 
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -288,7 +295,12 @@ export default function ChatPage() {
         return;
       }
     }
-    if (e.key === "Enter" && !slashMenu) {
+    if (e.key === "Escape" && slashMenu) {
+      e.preventDefault();
+      setSlashMenu(null);
+      return;
+    }
+    if (e.key === "Enter") {
       send();
     }
   }
@@ -303,6 +315,7 @@ export default function ChatPage() {
       return;
     }
     setInput("");
+    setSlashMenu(null);
     setError("");
     setNotice("");
     setBusy(true);
@@ -652,6 +665,7 @@ export default function ChatPage() {
 
         <div
           style={{
+            position: "relative",
             flexShrink: 0,
             padding: "10px 14px 8px",
             paddingBottom: kbInset > 0 ? kbInset + 8 : 8,
@@ -669,46 +683,34 @@ export default function ChatPage() {
               )}
             </div>
           )}
-          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 999, padding: "7px 8px 7px 16px" }}>
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={handleInputKeyDown}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              disabled={livePool === null || livePool === undefined}
-              placeholder={livePool === null ? "create or join a pool first" : `ask ${MODELS[model].emoji} ${MODELS[model].label}… or type / for commands`}
-              style={{ flex: 1, minWidth: 0, background: "none", border: "none", outline: "none", color: "var(--paper)", fontSize: 16, fontFamily: "inherit", fontWeight: 500 }}
-            />
-            <button
-              onClick={send}
-              disabled={busy || livePool === null || livePool === undefined}
-              aria-label="send"
-              style={{
-                width: 42, height: 42, borderRadius: "50%", background: "var(--volt)", border: "none",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-                color: "var(--ink)", fontWeight: 800, cursor: "pointer",
-                opacity: busy || livePool === null || livePool === undefined ? 0.5 : 1, flexShrink: 0,
-              }}
-            >
-              ↑
-            </button>
-          </div>
 
           {slashMenu && filteredCommands.length > 0 && (
             <div
               ref={slashMenuRef}
               style={{
-                position: "absolute", bottom: "calc(100% + 8px)", left: 14, right: 14, zIndex: 50,
-                background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 16,
-                padding: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                position: "absolute",
+                bottom: "100%",
+                left: 14,
+                right: 14,
+                marginBottom: 8,
+                zIndex: 50,
+                background: "var(--card)",
+                border: "1.5px solid var(--line)",
+                borderRadius: 16,
+                padding: 6,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
               }}
             >
               {filteredCommands.map((cmd, i) => (
                 <button
                   key={cmd.id}
-                  onClick={() => selectSlashCommand(cmd)}
+                  type="button"
+                  // pointerdown + preventDefault keeps focus in the input so
+                  // mobile taps don't lose the menu to blur before click fires.
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    selectSlashCommand(cmd);
+                  }}
                   onMouseEnter={() => setSlashMenu({ ...slashMenu, index: i })}
                   style={{
                     width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
@@ -730,6 +732,59 @@ export default function ChatPage() {
               </div>
             </div>
           )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 9, background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 999, padding: "7px 8px 7px 12px" }}>
+            <button
+              type="button"
+              aria-label="commands"
+              disabled={livePool === null || livePool === undefined}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                if (slashMenu) {
+                  setSlashMenu(null);
+                  return;
+                }
+                setInput("/");
+                setSlashMenu({ query: "", index: 0 });
+                inputRef.current?.focus();
+              }}
+              style={{
+                width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                background: slashMenu ? "var(--volt)" : "transparent",
+                border: `1.5px solid ${slashMenu ? "var(--volt)" : "var(--line)"}`,
+                color: slashMenu ? "var(--ink)" : "var(--dim)",
+                fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
+                opacity: livePool === null || livePool === undefined ? 0.4 : 1,
+              }}
+            >
+              /
+            </button>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              disabled={livePool === null || livePool === undefined}
+              placeholder={livePool === null ? "create or join a pool first" : `ask ${MODELS[model].emoji} ${MODELS[model].label}…`}
+              style={{ flex: 1, minWidth: 0, background: "none", border: "none", outline: "none", color: "var(--paper)", fontSize: 16, fontFamily: "inherit", fontWeight: 500 }}
+            />
+            <button
+              type="button"
+              onClick={send}
+              disabled={busy || livePool === null || livePool === undefined}
+              aria-label="send"
+              style={{
+                width: 42, height: 42, borderRadius: "50%", background: "var(--volt)", border: "none",
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+                color: "var(--ink)", fontWeight: 800, cursor: "pointer",
+                opacity: busy || livePool === null || livePool === undefined ? 0.5 : 1, flexShrink: 0,
+              }}
+            >
+              ↑
+            </button>
+          </div>
           {!kbOpen && (
             <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 8px 0", fontSize: 10, color: "var(--dim3)", fontWeight: 600 }}>
               <span>🔒 private by default</span>
