@@ -43,6 +43,23 @@ const SEED: Msg[] = [
 
 const demo = demoMode();
 
+interface SlashCommand {
+  id: string;
+  label: string;
+  emoji: string;
+  hint: string;
+  template: string;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { id: "summarize", label: "summarize", emoji: "📝", hint: "condense text or a link", template: "summarize this: " },
+  { id: "explain", label: "explain", emoji: "🧠", hint: "break down a concept", template: "explain this like i'm 5: " },
+  { id: "translate", label: "translate", emoji: "🌍", hint: "translate to another language", template: "translate to " },
+  { id: "caption", label: "caption", emoji: "📸", hint: "write a social caption", template: "write a caption for " },
+  { id: "settle", label: "settle", emoji: "⚖️", hint: "settle a debate", template: "settle this debate: " },
+  { id: "draft", label: "draft", emoji: "✍️", hint: "draft a message or email", template: "draft a " },
+];
+
 export default function ChatPage() {
   const [model, setModel] = useState<ModelId>(() => (demo ? getStoredModel<ModelId>("cheap") : "cheap"));
   const [msgs, setMsgs] = useState<Msg[]>(() => (demo ? (getChatHistory() ?? SEED) : []));
@@ -67,10 +84,12 @@ export default function ChatPage() {
     demo ? { name: POOL.name, shareDollars: memberShare() } : undefined
   );
   const [weather, setWeather] = useState<{ emoji: string; temp: number } | null>(null);
+  const [slashMenu, setSlashMenu] = useState<{ query: string; index: number } | null>(null);
   const hasPool = typeof livePool === "object" && livePool !== null;
   const turnRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const streamingRef = useRef(false);
 
@@ -223,6 +242,55 @@ export default function ChatPage() {
   function handleListScroll() {
     const el = listRef.current;
     if (el) pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  }
+
+  // Slash command palette: detect "/" at start of input, filter commands, handle selection.
+  function handleInputChange(value: string) {
+    setInput(value);
+    if (value.startsWith("/") && value.length > 0) {
+      const query = value.slice(1).toLowerCase();
+      setSlashMenu({ query, index: 0 });
+    } else {
+      setSlashMenu(null);
+    }
+  }
+
+  const filteredCommands = slashMenu
+    ? SLASH_COMMANDS.filter((cmd) => cmd.id.startsWith(slashMenu.query) || cmd.label.startsWith(slashMenu.query))
+    : [];
+
+  function selectSlashCommand(cmd: SlashCommand) {
+    setInput(cmd.template);
+    setSlashMenu(null);
+    inputRef.current?.focus();
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (slashMenu && filteredCommands.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashMenu({ ...slashMenu, index: Math.min(slashMenu.index + 1, filteredCommands.length - 1) });
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashMenu({ ...slashMenu, index: Math.max(slashMenu.index - 1, 0) });
+        return;
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault();
+        selectSlashCommand(filteredCommands[slashMenu.index]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSlashMenu(null);
+        return;
+      }
+    }
+    if (e.key === "Enter" && !slashMenu) {
+      send();
+    }
   }
 
   async function send() {
@@ -601,16 +669,16 @@ export default function ChatPage() {
               )}
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 9, background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 999, padding: "7px 8px 7px 16px" }}>
+          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 9, background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 999, padding: "7px 8px 7px 16px" }}>
             <input
               ref={inputRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyDown={handleInputKeyDown}
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
               disabled={livePool === null || livePool === undefined}
-              placeholder={livePool === null ? "create or join a pool first" : `ask ${MODELS[model].emoji} ${MODELS[model].label}…`}
+              placeholder={livePool === null ? "create or join a pool first" : `ask ${MODELS[model].emoji} ${MODELS[model].label}… or type / for commands`}
               style={{ flex: 1, minWidth: 0, background: "none", border: "none", outline: "none", color: "var(--paper)", fontSize: 16, fontFamily: "inherit", fontWeight: 500 }}
             />
             <button
@@ -627,6 +695,41 @@ export default function ChatPage() {
               ↑
             </button>
           </div>
+
+          {slashMenu && filteredCommands.length > 0 && (
+            <div
+              ref={slashMenuRef}
+              style={{
+                position: "absolute", bottom: "calc(100% + 8px)", left: 14, right: 14, zIndex: 50,
+                background: "var(--card)", border: "1.5px solid var(--line)", borderRadius: 16,
+                padding: 6, boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              }}
+            >
+              {filteredCommands.map((cmd, i) => (
+                <button
+                  key={cmd.id}
+                  onClick={() => selectSlashCommand(cmd)}
+                  onMouseEnter={() => setSlashMenu({ ...slashMenu, index: i })}
+                  style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
+                    borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit",
+                    background: i === slashMenu.index ? "var(--volt)" : "transparent",
+                    color: i === slashMenu.index ? "var(--ink)" : "var(--paper)",
+                    transition: "background 0.1s",
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>{cmd.emoji}</span>
+                  <span style={{ flex: 1, textAlign: "left" }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700 }}>/{cmd.label}</div>
+                    <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 600 }}>{cmd.hint}</div>
+                  </span>
+                </button>
+              ))}
+              <div style={{ padding: "6px 12px", fontSize: 10, color: "var(--dim3)", fontWeight: 600, borderTop: "1px solid var(--line)", marginTop: 4 }}>
+                {touchDevice ? "tap to select" : "↑↓ to navigate · tab/enter to select · esc to close"}
+              </div>
+            </div>
+          )}
           {!kbOpen && (
             <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 8px 0", fontSize: 10, color: "var(--dim3)", fontWeight: 600 }}>
               <span>🔒 private by default</span>
