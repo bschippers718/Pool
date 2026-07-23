@@ -49,15 +49,16 @@ interface SlashCommand {
   emoji: string;
   hint: string;
   template: string;
+  // Some commands also switch the composer to a specific tier (e.g. /image).
+  tier?: ModelId;
 }
 
 const SLASH_COMMANDS: SlashCommand[] = [
+  { id: "image", label: "image", emoji: "🎨", hint: "generate 4 image variants", template: "draw ", tier: "image" },
   { id: "summarize", label: "summarize", emoji: "📝", hint: "condense text or a link", template: "summarize this: " },
   { id: "explain", label: "explain", emoji: "🧠", hint: "break down a concept", template: "explain this like i'm 5: " },
-  { id: "translate", label: "translate", emoji: "🌍", hint: "translate to another language", template: "translate to " },
   { id: "caption", label: "caption", emoji: "📸", hint: "write a social caption", template: "write a caption for " },
   { id: "settle", label: "settle", emoji: "⚖️", hint: "settle a debate", template: "settle this debate: " },
-  { id: "draft", label: "draft", emoji: "✍️", hint: "draft a message or email", template: "draft a " },
 ];
 
 export default function ChatPage() {
@@ -260,6 +261,7 @@ export default function ChatPage() {
     : [];
 
   function selectSlashCommand(cmd: SlashCommand) {
+    if (cmd.tier) setModel(cmd.tier);
     setInput(cmd.template);
     setSlashMenu(null);
     // Keep focus and put the caret at the end of the template.

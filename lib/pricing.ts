@@ -16,9 +16,8 @@ export const MODELS: Record<
 
 export const VALID_TIERS: ModelId[] = ["cheap", "smart", "image"];
 
-// Tiers a user can actually pick in the composer. Image is demo-only for now:
-// the live gateway has no real image provider wired, so it stays hidden (and
-// unbillable) until one exists.
+// Tiers a user can actually pick in the composer. All three are live now that
+// the image tier routes to Grok Imagine.
 export function selectableTiers(): ModelId[] {
   return ["cheap", "smart", "image"];
 }
