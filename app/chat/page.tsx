@@ -66,12 +66,38 @@ export default function ChatPage() {
   const [livePool, setLivePool] = useState<{ name: string; shareDollars: number } | null | undefined | "error">(
     demo ? { name: POOL.name, shareDollars: memberShare() } : undefined
   );
+  const [weather, setWeather] = useState<{ emoji: string; temp: number } | null>(null);
   const hasPool = typeof livePool === "object" && livePool !== null;
   const turnRef = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const pinnedRef = useRef(true);
   const streamingRef = useRef(false);
+
+  // Fetch weather once on load: IP-based geolocation → Open-Meteo (both free, no key).
+  // Fails silently if either API is down — weather is a nice-to-have, not critical.
+  useEffect(() => {
+    fetch("https://ipwho.is/")
+      .then((res) => res.json())
+      .then((geo) => {
+        const { latitude, longitude } = geo;
+        if (!latitude || !longitude) return;
+        return fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`
+        );
+      })
+      .then((res) => res?.json())
+      .then((data) => {
+        const temp = data?.current?.temperature_2m;
+        const code = data?.current?.weather_code;
+        if (temp === undefined || code === undefined) return;
+        // WMO weather codes: 0-3 clear/clouds, 45-48 fog, 51-67 rain, 71-77 snow, 80-82 showers, 95-99 thunder
+        const emoji =
+          code <= 1 ? "☀️" : code <= 3 ? "⛅" : code <= 48 ? "🌫️" : code <= 67 ? "🌧️" : code <= 77 ? "❄️" : code <= 82 ? "🌦️" : "⛈️";
+        setWeather({ emoji, temp: Math.round(temp) });
+      })
+      .catch(() => {}); // weather is ambient — never error the chat
+  }, []);
 
   // Live mode: hydrate history from the server.
   useEffect(() => {
@@ -301,7 +327,9 @@ export default function ChatPage() {
             <PLogo size={32} />
             <div>
               <div className="display" style={{ fontSize: 15 }}>chat</div>
-              <div style={{ fontSize: 10.5, color: "var(--dim)", fontWeight: 600 }}>🔒 private until you share</div>
+              <div style={{ fontSize: 10.5, color: "var(--dim)", fontWeight: 600 }}>
+                🔒 private until you share{weather && ` · ${weather.emoji} ${weather.temp}°`}
+              </div>
             </div>
             {livePool === null ? (
               <a
