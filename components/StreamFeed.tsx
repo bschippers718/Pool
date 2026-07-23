@@ -93,7 +93,15 @@ export default function StreamFeed() {
             />
             <div className="card3" style={{ padding: "16px 16px 14px" }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--dim)" }}>&ldquo;{moment.title}&rdquo;</div>
-              <div style={{ marginTop: 9, fontSize: 14, lineHeight: 1.55, fontWeight: 600 }}>{moment.response}</div>
+              {moment.tier === "image" && moment.response.startsWith("http") ? (
+                <img
+                  src={moment.response}
+                  alt={moment.title}
+                  style={{ width: "100%", borderRadius: 12, marginTop: 9, border: "1.5px solid var(--line)" }}
+                />
+              ) : (
+                <div style={{ marginTop: 9, fontSize: 14, lineHeight: 1.55, fontWeight: 600 }}>{moment.response}</div>
+              )}
             </div>
             <PostFooter id={moment.id} model={moment.tier} reach="squad only" reactions={reactions} setReactions={setReactions} />
           </article>

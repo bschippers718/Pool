@@ -72,9 +72,17 @@ export default function ShareSheet({ title, response, model, onClose }: ShareShe
 
         <div className="share-preview">
           <div style={{ color: "var(--dim)", fontSize: 11, fontWeight: 700 }}>&ldquo;{title}&rdquo;</div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>
-            {response.length > 190 ? `${response.slice(0, 190)}…` : response}
-          </div>
+          {model === "image" && response.startsWith("http") ? (
+            <img
+              src={response}
+              alt={title}
+              style={{ width: "100%", borderRadius: 10, marginTop: 8, border: "1px solid var(--line)" }}
+            />
+          ) : (
+            <div style={{ fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>
+              {response.length > 190 ? `${response.slice(0, 190)}…` : response}
+            </div>
+          )}
           <div style={{ color: "var(--volt)", fontSize: 10.5, fontWeight: 800, marginTop: 10 }}>
             {MODELS[model].emoji} {MODELS[model].label} · shared on purpose
           </div>

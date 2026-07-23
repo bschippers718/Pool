@@ -96,9 +96,17 @@ export default function MomentLink({ id }: { id: string }) {
         <span className="tag3 volt">shared from {resolved.poolName}</span>
         <div className="card3" style={{ padding: "26px 22px 22px", marginTop: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--dim)" }}>&ldquo;{resolved.title}&rdquo;</div>
-          <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.55, marginTop: 12, letterSpacing: -0.2 }}>
-            {resolved.response}
-          </div>
+          {resolved.tier === "image" && resolved.response.startsWith("http") ? (
+            <img
+              src={resolved.response}
+              alt={resolved.title}
+              style={{ width: "100%", borderRadius: 12, marginTop: 12, border: "1.5px solid var(--line)" }}
+            />
+          ) : (
+            <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.55, marginTop: 12, letterSpacing: -0.2 }}>
+              {resolved.response}
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 20 }}>
             <div className="display avatar" style={{ background: "#B7A6FF" }}>{resolved.author[0].toUpperCase()}</div>
             <div>
