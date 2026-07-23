@@ -20,7 +20,7 @@ export const VALID_TIERS: ModelId[] = ["cheap", "smart", "image"];
 // the live gateway has no real image provider wired, so it stays hidden (and
 // unbillable) until one exists.
 export function selectableTiers(): ModelId[] {
-  return demoMode() ? ["cheap", "smart", "image"] : ["cheap", "smart"];
+  return ["cheap", "smart", "image"];
 }
 
 // Estimated pay-per-use retail cost for one exchange

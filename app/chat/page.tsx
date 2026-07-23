@@ -499,9 +499,17 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                {m.text.split("\n").map((line, j) => (
-                  <span key={j}>{line}{j < m.text.split("\n").length - 1 && <br />}</span>
-                ))}
+                {!demo && m.model === "image" && m.text.startsWith("http") && (
+                  <img
+                    src={m.text}
+                    alt="generated image"
+                    style={{ width: "100%", borderRadius: 12, marginBottom: 8, border: "1.5px solid var(--line)" }}
+                  />
+                )}
+                {!(!demo && m.model === "image" && m.text.startsWith("http")) &&
+                  m.text.split("\n").map((line, j) => (
+                    <span key={j}>{line}{j < m.text.split("\n").length - 1 && <br />}</span>
+                  ))}
                 {m.saved === undefined && busy && i === msgs.length - 1 && (
                   m.text === "" ? <ThinkingTease /> : <span className="caret" />
                 )}

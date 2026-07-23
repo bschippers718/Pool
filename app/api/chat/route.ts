@@ -37,11 +37,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unsupported model" }, { status: 400 });
   }
   const model: ModelId = (body.model as ModelId | undefined) ?? "cheap";
-  // Live mode has no real image provider yet — reject at the API too, so the
-  // stub can't be reached (or billed) by hand-rolled requests.
-  if (!demoMode && model === "image") {
-    return Response.json({ error: "Unsupported model" }, { status: 400 });
-  }
   const prompt = typeof body.prompt === "string" ? body.prompt.trim().slice(0, 4000) : "";
   if (!prompt) return Response.json({ error: "Prompt is required" }, { status: 400 });
 

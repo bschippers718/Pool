@@ -195,11 +195,24 @@ export async function streamTierCompletion(
   onDelta: (text: string) => void
 ): Promise<CompletedExchange> {
   if (tier === "image") {
-    // Image gens are metered per-call; the alpha renders the variant grid on
-    // the client, so the gateway returns a stub description for history.
-    const text = `4 variants for "${prompt.slice(0, 120)}" — pick one to upscale.`;
-    onDelta(text);
-    return { text, inputTokens: 0, outputTokens: 0 };
+    // Grok Imagine: non-streaming image generation. Returns URL to client.
+    const route = tierRoute(tier);
+    const client = providerClient(route.provider);
+    try {
+      const response = await client.images.generate({
+        model: route.model,
+        prompt,
+        n: 1,
+        response_format: "url",
+      });
+      const url = response.data?.[0]?.url;
+      if (!url) throw new Error("no image URL returned");
+      // Return the URL as text — the client renders it as an <img> tag.
+      onDelta(url);
+      return { text: url, inputTokens: 0, outputTokens: 0 };
+    } catch (err) {
+      throw new GatewayError("provider_error", err instanceof Error ? err.message : "image generation failed");
+    }
   }
 
   const route = tierRoute(tier);

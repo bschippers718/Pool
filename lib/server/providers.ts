@@ -54,12 +54,14 @@ function ratesFor(model: string, fallback: { inCents: number; outCents: number }
 
 export function tierRoute(tier: ModelId): TierRoute {
   if (tier === "image") {
+    // xAI Grok Imagine: $0.05/image for quality tier (5¢), $0.02 for fast tier (2¢).
+    // Default to quality for alpha — friends generating memes should look good.
     return {
-      provider: pickProvider("openai", process.env.POOL_PROVIDER_IMAGE),
-      model: process.env.POOL_MODEL_IMAGE ?? "gpt-image-1",
+      provider: pickProvider("xai", process.env.POOL_PROVIDER_IMAGE),
+      model: process.env.POOL_MODEL_IMAGE ?? "grok-imagine-image-quality",
       inCentsPerToken: 0,
       outCentsPerToken: 0,
-      perCallCents: 4, // ~4¢ per generation at current image pricing
+      perCallCents: 5,
     };
   }
   if (tier === "smart") {
