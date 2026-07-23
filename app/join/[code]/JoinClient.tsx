@@ -94,6 +94,12 @@ export default function JoinClient({ code, valid, poolName, poolEmoji }: Props) 
             <button className="btn3" style={{ marginTop: 26, width: "100%" }} disabled={busy} onClick={() => join()}>
               {busy ? "joining…" : "join the pool →"}
             </button>
+            <Link
+              href="/sign-up?redirect_url=%2Fonboarding%3Fmode%3Dcreate"
+              style={{ display: "block", marginTop: 14, fontSize: 12, fontWeight: 700, color: "var(--dim)", textDecoration: "none", padding: "6px 0" }}
+            >
+              or start a pool of your own <span style={{ color: "var(--volt)" }}>→</span>
+            </Link>
           </>
         ) : (
           <>

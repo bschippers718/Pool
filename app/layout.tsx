@@ -5,8 +5,15 @@ import ChatFab from "@/components/ChatFab";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Absolute URLs in OG tags need this — crawlers don't guess the host.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://joinpool.app"),
   title: "Pool — split AI like Netflix",
   description: "One shared AI budget for your whole crew — fast, smart & image gen. Every friend you invite drops the price.",
+  openGraph: {
+    title: "Pool — split AI like Netflix",
+    description: "One shared AI budget for your whole crew — fast, smart & image gen. Every friend you invite drops the price.",
+  },
+  twitter: { card: "summary_large_image" },
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Pool" },
 };

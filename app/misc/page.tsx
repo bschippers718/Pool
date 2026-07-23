@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import TabBar from "@/components/TabBar";
 import MiscAction from "@/components/MiscAction";
 import OwnerControls from "@/components/OwnerControls";
+import StartYourOwnPool from "@/components/StartYourOwnPool";
 import SignOutRow from "@/components/SignOutRow";
 import PoolData from "@/components/PoolData";
 import { PLogo, RippleLogo } from "@/components/Logo";
@@ -287,6 +288,7 @@ export default function MiscPage() {
           <MiscAction kind="invite" poolName={poolName} inviteLink={inviteLink} />
           <MiscAction kind="fairness" />
           <MiscAction kind="privacy" />
+          {!demo && !lp!.isOwner && <StartYourOwnPool poolName={poolName} />}
           {!demo && lp!.isOwner && (
             <OwnerControls
               inviteCode={lp!.inviteCode}

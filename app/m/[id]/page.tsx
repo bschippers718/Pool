@@ -1,7 +1,57 @@
+import type { Metadata } from "next";
 import { PLogo } from "@/components/Logo";
 import MomentLink from "@/components/MomentLink";
 import { STREAM, MEMBERS } from "@/lib/data";
 import { MODELS, demoMode } from "@/lib/pricing";
+import { supabaseService } from "@/lib/server/supabase";
+
+// Link unfurlers read title/description + the sibling opengraph-image.
+// Written to spark the click: the friend's name + a tease of the answer.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const fallback = {
+    title: "a share from pool",
+    description: "Your friend shared an AI answer from their pool — tap to see it.",
+  };
+  if (demoMode()) return fallback;
+  try {
+    const db = supabaseService();
+    const { data } = await db
+      .from("shared_moments")
+      .select("title, response, tier, profiles(display_name, handle)")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return fallback;
+    const profile = data.profiles as unknown as { display_name: string; handle: string } | null;
+    const author = profile?.display_name ?? profile?.handle ?? "a friend";
+    const title = `${author} asked the pool: “${truncate(data.title, 70)}”`;
+    const description =
+      data.tier === "image"
+        ? "🎨 4 image variants — tap to see them. Split AI with your crew on pool."
+        : `${truncate(data.response as string, 150)} — split AI like a Netflix password.`;
+    return {
+      title,
+      description,
+      openGraph: { title, description, type: "article" },
+      twitter: { card: "summary_large_image", title, description },
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function truncate(s: string, n: number): string {
+  const clean = s
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/(\*\*|__|\*|_|`)/g, "")
+    .replace(/^\s*\|.*\|\s*$/gm, " ")
+    .replace(/^\s*[-|:\s]+$/gm, " ")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean.length > n ? clean.slice(0, n - 1).trimEnd() + "…" : clean;
+}
 
 export default async function DeepLinkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

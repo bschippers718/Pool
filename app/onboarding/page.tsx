@@ -30,10 +30,11 @@ export default function OnboardingPage() {
 function Onboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Deep links can open join mode directly: /onboarding?mode=join
-  const [mode, setMode] = useState<"pick" | "create" | "join">(() =>
-    searchParams.get("mode") === "join" ? "join" : "pick"
-  );
+  // Deep links can open a mode directly: /onboarding?mode=join or ?mode=create
+  const [mode, setMode] = useState<"pick" | "create" | "join">(() => {
+    const m = searchParams.get("mode");
+    return m === "join" || m === "create" ? m : "pick";
+  });
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);

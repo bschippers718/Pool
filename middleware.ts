@@ -11,6 +11,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/pools/join", // route handles its own auth and returns clean 401 JSON
   "/manifest.json",
   "/icon.svg",
+  "/opengraph-image(.*)", // OG cards must be crawlable by link unfurlers
+  "/twitter-image(.*)",
 ]);
 
 const demoMode = process.env.NEXT_PUBLIC_POOL_DEMO_MODE !== "false";
