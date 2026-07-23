@@ -188,6 +188,21 @@ export default function ChatPage() {
     inputRef.current?.focus();
   }, []);
 
+  // A prompt handed off from the floating composer on another tab: auto-send
+  // it once the pool is confirmed and history has hydrated.
+  useEffect(() => {
+    if (!hasPool || !historyLoaded || busy) return;
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem("pool:pending-prompt");
+      if (pending) sessionStorage.removeItem("pool:pending-prompt");
+    } catch {
+      return;
+    }
+    if (pending) send(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPool, historyLoaded]);
+
   useEffect(() => {
     const mq = window.matchMedia("(pointer: coarse)");
     const update = () => setTouchDevice(mq.matches);
@@ -307,8 +322,8 @@ export default function ChatPage() {
     }
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text) return;
     if (busy) {
       const el = listRef.current;
@@ -774,7 +789,7 @@ export default function ChatPage() {
             />
             <button
               type="button"
-              onClick={send}
+              onClick={() => send()}
               disabled={busy || livePool === null || livePool === undefined}
               aria-label="send"
               style={{
